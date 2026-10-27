@@ -126,30 +126,4 @@ Server sẽ sẵn sàng phục vụ tại: **`http://127.0.0.1:8000`**.
 
 ---
 
-## 5. HƯỚNG DẪN ĐẨY MÃ NGUỒN LÊN GITHUB ĐỂ NỘP BÀI
 
-Để lấy link GitHub nộp cho Giảng viên theo đúng **Yêu cầu 3**:
-
-```powershell
-# 1. Khởi tạo Git repository (nếu chưa khởi tạo)
-git init
-
-# 2. Kiểm tra các file sẽ được thêm vào (đã loại trừ venv và cache qua .gitignore)
-git status
-
-# 3. Thêm toàn bộ các file
-git add .
-
-# 4. Tạo commit đầu tiên
-git commit -m "feat: Hoan thien do an NoSQL De tai 05 - Real-time Leaderboard Redis"
-
-# 5. Đổi tên nhánh chính sang main
-git branch -M main
-
-# 6. Liên kết với kho chứa GitHub của bạn (thay bằng link repo của bạn)
-git remote add origin https://github.com/<username_cua_ban>/DoAn-NoSQL-Redis.git
-
-# 7. Đẩy mã nguồn lên GitHub
-git push -u origin main
-```
-Sau khi push thành công, bạn chỉ cần copy link repository GitHub của mình để nộp bài!
