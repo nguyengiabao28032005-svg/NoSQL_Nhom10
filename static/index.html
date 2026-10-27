@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ Thống Thi Trắc Nghiệm - Bảng Xếp Hạng Thời Gian Thực</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="brand">
+      <span class="brand-icon">⚡</span>
+      <span>Hệ Thống Thi Trắc Nghiệm (Redis Leaderboard)</span>
+    </div>
+    <div class="nav-links">
+      <div id="liveStatus" class="live-badge connecting">
+        <span class="dot"></span>
+        <span id="liveStatusText">Đang kết nối...</span>
+      </div>
+      <a href="/static/admin.html" class="nav-btn secondary">⚙️ Quản Trị Hệ Thống</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- CONTROLS BAR: CHỌN NGƯỜI CHƠI VÀ TRẬN ĐẤU -->
+    <section class="controls-bar">
+      <div class="control-group">
+        <label for="playerSelect" class="control-label">👤 Thí Sinh:</label>
+        <select id="playerSelect" class="select-input" style="max-width: 250px;">
+          <option value="1">Nguyễn Văn A (Demo 1)</option>
+        </select>
+        <input type="number" id="playerIdInput" class="text-input" placeholder="Nhập ID" style="width: 80px;" min="1" value="1">
+        <button id="btnSwitchPlayer" class="nav-btn primary" style="padding: 7px 12px;">Đổi Thí Sinh</button>
+      </div>
+
+      <div class="control-group">
+        <label for="gameSelect" class="control-label">🎮 Trận Đấu:</label>
+        <select id="gameSelect" class="select-input">
+          <option value="1">Game 1: Toán</option>
+          <option value="2">Game 2: Lý</option>
+          <option value="3">Game 3: Hóa</option>
+          <option value="4">Game 4: Sinh học</option>
+          <option value="5">Game 5: Lịch sử</option>
+          <option value="6">Game 6: Địa lý</option>
+          <option value="7">Game 7: Văn học</option>
+          <option value="8">Game 8: Tiếng Anh</option>
+          <option value="9">Game 9: Tin học</option>
+          <option value="10">Game 10: Khoa học & Đời sống</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- MAIN GRID: BÊN TRÁI THI ĐẤU, BÊN PHẢI BẢNG XẾP HẠNG -->
+    <main class="main-grid">
+      
+      <!-- CỘT TRÁI: KHU VỰC THI ĐẤU TRẮC NGHIỆM -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">📝 Thi Đấu Trực Tuyến</h2>
+          <span id="gameStatusBadge" class="q-cat" style="background: rgba(148,163,184,0.15); color: #94a3b8;">Trạng thái: Đang tải...</span>
+        </div>
+
+        <!-- BANNER THÔNG TIN NGƯỜI CHƠI HIỆN TẠI -->
+        <div class="player-stat-banner">
+          <div class="player-info">
+            <img id="myAvatar" class="player-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=player_1" alt="Avatar">
+            <div class="player-names">
+              <div id="myDisplayName" class="name">Nguyễn Văn A</div>
+              <div id="myUsername" class="username">@nguyenvana (ID: 1)</div>
+            </div>
+          </div>
+          <div class="stat-pills">
+            <div class="stat-pill">
+              <div id="myScore" class="val">0</div>
+              <div class="lbl">Điểm Số</div>
+            </div>
+            <div class="stat-pill">
+              <div id="myRank" class="val">-</div>
+              <div class="lbl">Thứ Hạng</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HỘP CÂU HỎI TRẮC NGHIỆM -->
+        <div class="question-box">
+          <div class="q-meta">
+            <span id="qCategory" class="q-cat">Chủ đề: CNTT</span>
+            <span id="qIndexText" style="color: var(--text-muted); font-weight: 600;">Câu 1 / 10</span>
+            <span id="qPoints" class="q-points">+100 điểm</span>
+          </div>
+          <div id="qContent" class="q-content">Đang tải câu hỏi thi đấu...</div>
+        </div>
+
+        <!-- 4 NÚT ĐÁP ÁN A, B, C, D -->
+        <div class="choices-grid">
+          <button class="choice-btn" data-choice="A">
+            <span class="letter">A</span>
+            <span id="choiceTextA" class="text">Phương án A</span>
+          </button>
+          <button class="choice-btn" data-choice="B">
+            <span class="letter">B</span>
+            <span id="choiceTextB" class="text">Phương án B</span>
+          </button>
+          <button class="choice-btn" data-choice="C">
+            <span class="letter">C</span>
+            <span id="choiceTextC" class="text">Phương án C</span>
+          </button>
+          <button class="choice-btn" data-choice="D">
+            <span class="letter">D</span>
+            <span id="choiceTextD" class="text">Phương án D</span>
+          </button>
+        </div>
+
+        <!-- THÔNG BÁO KẾT QUẢ ĐÚNG / SAI -->
+        <div id="feedbackMsg" class="feedback-msg"></div>
+
+        <!-- ĐIỀU HƯỚNG CÂU HỎI -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+          <button id="btnPrevQ" class="nav-btn secondary">⬅️ Câu Trước</button>
+          <button id="btnNextQ" class="nav-btn primary">Câu Kế Tiếp ➡️</button>
+        </div>
+      </section>
+
+      <!-- CỘT PHẢI: BẢNG XẾP HẠNG THỜI GIAN THỰC (TRANSFORM TRANSLATEY) -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">🏆 Bảng Xếp Hạng Trực Tiếp</h2>
+          <div class="lb-tabs">
+            <button id="tabGame" class="lb-tab active">Trận Đấu</button>
+            <button id="tabGlobal" class="lb-tab">Toàn Cầu</button>
+          </div>
+        </div>
+
+        <!-- KHUNG VIEWPORT TOP 10 CHIỀU CAO CHUẨN 480PX (10 X 48PX) -->
+        <div class="leaderboard-viewport" id="leaderboardViewport">
+          <!-- Các hàng TOP 10 sẽ được JavaScript render động với absolute position -->
+        </div>
+
+        <!-- KHU VỰC 'XUNG QUANH TÔI' (HIỂN THỊ KHI NGOÀI TOP 10) -->
+        <div id="aroundMeContainer" class="around-me-section" style="display: none;">
+          <div class="around-title">📍 Vị trí xung quanh bạn:</div>
+          <div id="aroundMeList" class="around-list"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- JAVASCRIPT THỜI GIAN THỰC (EVENTSOURCE + CSS TRANSFORM TRANSLATEY) -->
+  <script>
+    let currentGid = 1;
+    let currentPid = 1;
+    let activeTab = 'game'; // 'game' hoặc 'global'
+    let eventSource = null;
+    let gameQuestions = [];
+    let currentQIndex = 0;
+    let currentGameStatus = 'running';
+    let currentTopMap = new Map(); // Lưu vị trí hàng để animation mượt mà
+    let playerAnswersMap = {}; // Lưu đáp án đã chọn của người chơi: { [qid]: { choice, correct } }
+
+    async function loadGameInfo(gid) {
+      try {
+        const res = await fetch(`/games/${gid}`);
+        if (res.ok) {
+          const g = await res.json();
+          updateGameStatusUI(g.status);
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải thông tin game:', err);
+      }
+    }
+
+    function updateGameStatusUI(status) {
+      currentGameStatus = status || 'running';
+      const badge = document.getElementById('gameStatusBadge');
+      if (badge) {
+        if (currentGameStatus === 'finished') {
+          badge.style.background = 'rgba(239,68,68,0.2)';
+          badge.style.color = '#f87171';
+          badge.innerText = 'Trạng thái: Đã kết thúc';
+        } else if (currentGameStatus === 'waiting') {
+          badge.style.background = 'rgba(250,204,21,0.2)';
+          badge.style.color = '#fbbf24';
+          badge.innerText = 'Trạng thái: Chờ bắt đầu';
+        } else {
+          badge.style.background = 'rgba(34,197,94,0.15)';
+          badge.style.color = '#4ade80';
+          badge.innerText = 'Trạng thái: Đang diễn ra';
+        }
+      }
+      renderCurrentQuestion();
+    }
+
+    async function loadPlayerAnswers() {
+      try {
+        const res = await fetch(`/games/${currentGid}/answers/${currentPid}`);
+        if (res.ok) {
+          playerAnswersMap = await res.json();
+        } else {
+          playerAnswersMap = {};
+        }
+      } catch (err) {
+        playerAnswersMap = {};
+      }
+    }
+
+    // 1. KHỞI TẠO VÀ ĐỌC DANH SÁCH DỮ LIỆU
+    async function initApp() {
+      await loadGamesList();
+      await loadPlayersList();
+      await loadGameInfo(currentGid);
+      await loadGameQuestions(currentGid);
+      await loadPlayerAnswers();
+      await switchPlayer(currentPid);
+      connectEventSource(currentGid);
+    }
+
+    // 2. KẾT NỐI SERVER-SENT EVENTS (SSE)
+    function connectEventSource(gid) {
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      const statusBadge = document.getElementById('liveStatus');
+      const statusText = document.getElementById('liveStatusText');
+      statusBadge.className = 'live-badge connecting';
+      statusText.innerText = 'Đang kết nối...';
+
+      eventSource = new EventSource(`/stream/${gid}`);
+
+      eventSource.onopen = () => {
+        statusBadge.className = 'live-badge live';
+        statusText.innerText = 'Trực tiếp (Live)';
+      };
+
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          handleStreamEvent(data);
+        } catch (err) {
+          console.error('Lỗi phân tích SSE data:', err);
+        }
+      };
+
+      eventSource.onerror = () => {
+        statusBadge.className = 'live-badge disconnected';
+        statusText.innerText = 'Mất kết nối - Đang nối lại...';
+      };
+    }
+
+    // XỬ LÝ SỰ KIỆN TỪ SSE
+    function handleStreamEvent(data) {
+      if (data.type === 'init_leaderboard') {
+        if (activeTab === 'game') {
+          renderLeaderboard(data.top);
+        }
+      } else if (data.type === 'game_status_changed') {
+        loadGamesList();
+        if (data.game_id === currentGid) {
+          updateGameStatusUI(data.status);
+        }
+      } else if (data.type === 'rank_updated' || data.type === 'leaderboard_changed') {
+        // Tải lại đúng tab đang mở (không polling)
+        reloadActiveLeaderboard();
+        // Cập nhật lại chỉ số cá nhân nếu liên quan đến người chơi hiện tại
+        updateMyStats();
+      } else if (data.type === 'global_leaderboard_changed') {
+        if (activeTab === 'global') {
+          reloadActiveLeaderboard();
+        }
+        updateMyStats();
+      }
+    }
+
+    // 3. TẢI VÀ RENDER BẢNG XẾP HẠNG VỚI CSS TRANSFORM
+    async function reloadActiveLeaderboard() {
+      const url = activeTab === 'game' 
+        ? `/leaderboard/game/${currentGid}?top=10` 
+        : `/leaderboard/global?top=10`;
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const topList = await res.json();
+          renderLeaderboard(topList);
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải bảng xếp hạng:', err);
+      }
+    }
+
+    function renderLeaderboard(items) {
+      const viewport = document.getElementById('leaderboardViewport');
+      const existingElements = new Map();
+      
+      // Thu thập các phần tử DOM hiện có
+      viewport.querySelectorAll('.lb-row').forEach(row => {
+        existingElements.set(row.dataset.playerKey, row);
+      });
+
+      const nextKeys = new Set();
+
+      items.forEach((item, index) => {
+        const key = `player:${item.player_id}`;
+        nextKeys.add(key);
+
+        const yPos = index * 48; // Mỗi hàng cách nhau 48px
+        let row = existingElements.get(key);
+
+        const isMe = item.player_id === currentPid;
+        let rankClass = '';
+        let rankLabel = item.rank;
+        if (item.rank === 1) { rankClass = 'gold'; rankLabel = '🥇 1'; }
+        else if (item.rank === 2) { rankClass = 'silver'; rankLabel = '🥈 2'; }
+        else if (item.rank === 3) { rankClass = 'bronze'; rankLabel = '🥉 3'; }
+
+        if (!row) {
+          // Tạo hàng mới
+          row = document.createElement('div');
+          row.className = `lb-row ${isMe ? 'current-player' : ''}`;
+          row.dataset.playerKey = key;
+          row.style.transform = `translateY(${yPos}px)`;
+          row.innerHTML = `
+            <span class="lb-rank ${rankClass}">${rankLabel}</span>
+            <img class="lb-avatar" src="${item.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.player_id}">
+            <span class="lb-name">${item.display_name || item.username || key}</span>
+            <span class="lb-score">${item.score.toLocaleString()}đ</span>
+          `;
+          viewport.appendChild(row);
+        } else {
+          // Di chuyển mượt mà qua CSS Transform translateY
+          const prevY = row.style.transform;
+          const newTransform = `translateY(${yPos}px)`;
+          
+          // Kiểm tra điểm số có đổi không để kích hoạt hiệu ứng flash
+          const scoreEl = row.querySelector('.lb-score');
+          const oldScore = scoreEl.innerText;
+          const newScoreStr = `${item.score.toLocaleString()}đ`;
+          if (oldScore !== newScoreStr) {
+            row.classList.add('flash');
+            setTimeout(() => row.classList.remove('flash'), 1200);
+          }
+
+          row.className = `lb-row ${isMe ? 'current-player' : ''}`;
+          row.style.transform = newTransform;
+          row.querySelector('.lb-rank').className = `lb-rank ${rankClass}`;
+          row.querySelector('.lb-rank').innerText = rankLabel;
+          row.querySelector('.lb-name').innerText = item.display_name || item.username || key;
+          scoreEl.innerText = newScoreStr;
+        }
+      });
+
+      // Xóa các hàng không còn trong Top 10
+      existingElements.forEach((el, key) => {
+        if (!nextKeys.has(key)) {
+          el.remove();
+        }
+      });
+    }
+
+    // 4. CẬP NHẬT CHỈ SỐ CỦA NGƯỜI CHƠI HIỆN TẠI & AROUND ME
+    async function updateMyStats() {
+      try {
+        const url = activeTab === 'game'
+          ? `/leaderboard/game/${currentGid}/player/${currentPid}`
+          : `/leaderboard/global/player/${currentPid}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('myScore').innerText = data.score.toLocaleString();
+          document.getElementById('myRank').innerText = `#${data.rank}`;
+
+          // Nếu ngoài Top 10 thì hiện khu vực Around Me
+          if (data.rank > 10) {
+            loadAroundMe();
+          } else {
+            document.getElementById('aroundMeContainer').style.display = 'none';
+          }
+        }
+      } catch (err) {}
+    }
+
+    async function loadAroundMe() {
+      try {
+        const url = activeTab === 'game'
+          ? `/leaderboard/game/${currentGid}/around/${currentPid}`
+          : `/leaderboard/global/around/${currentPid}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const container = document.getElementById('aroundMeContainer');
+          const list = document.getElementById('aroundMeList');
+          list.innerHTML = '';
+
+          data.entries.forEach(entry => {
+            const isMe = entry.player_id === currentPid;
+            const row = document.createElement('div');
+            row.className = `around-row ${isMe ? 'current-player' : ''}`;
+            row.innerHTML = `
+              <span class="lb-rank" style="font-size:0.85rem;">#${entry.rank}</span>
+              <img class="lb-avatar" style="width:24px;height:24px;" src="${entry.avatar}">
+              <span class="lb-name" style="font-size:0.85rem;">${entry.display_name || entry.username}</span>
+              <span class="lb-score" style="font-size:0.85rem;">${entry.score.toLocaleString()}đ</span>
+            `;
+            list.appendChild(row);
+          });
+          container.style.display = 'block';
+        }
+      } catch (err) {}
+    }
+
+    // 5. ĐỔI NGƯỜI CHƠI VÀ THI ĐẤU
+    async function switchPlayer(pid) {
+      currentPid = parseInt(pid);
+      try {
+        const res = await fetch(`/players/${currentPid}`);
+        if (res.ok) {
+          const p = await res.json();
+          document.getElementById('myDisplayName').innerText = p.display_name;
+          document.getElementById('myUsername').innerText = `@${p.username} (ID: ${p.id})`;
+          document.getElementById('myAvatar').src = p.avatar;
+          document.getElementById('playerIdInput').value = currentPid;
+          const sel = document.getElementById('playerSelect');
+          if (sel) {
+            if (![...sel.options].some(o => o.value == currentPid)) {
+              const opt = document.createElement('option');
+              opt.value = p.id;
+              opt.innerText = `#${p.id} - ${p.display_name} (@${p.username})`;
+              sel.insertBefore(opt, sel.firstChild);
+            }
+            sel.value = currentPid;
+          }
+
+          // Tham gia game nếu chưa join
+          await fetch(`/games/${currentGid}/join?player_id=${currentPid}`, { method: 'POST' });
+          await loadPlayerAnswers();
+          await updateMyStats();
+          renderCurrentQuestion();
+          reloadActiveLeaderboard();
+        }
+      } catch (err) {}
+    }
+
+    // 6. QUẢN LÝ CÂU HỎI VÀ NỘP BÀI
+    async function loadGameQuestions(gid) {
+      try {
+        const res = await fetch(`/games/${gid}/questions`);
+        if (res.ok) {
+          gameQuestions = await res.json();
+          currentQIndex = 0;
+          renderCurrentQuestion();
+        }
+      } catch (err) {}
+    }
+
+    function renderCurrentQuestion() {
+      const fb = document.getElementById('feedbackMsg');
+      fb.className = 'feedback-msg';
+      fb.innerText = '';
+
+      if (!gameQuestions || gameQuestions.length === 0) {
+        document.getElementById('qContent').innerText = 'Chưa có câu hỏi cho trận đấu này.';
+        return;
+      }
+
+      const q = gameQuestions[currentQIndex];
+      document.getElementById('qCategory').innerText = `Chủ đề: ${q.category}`;
+      document.getElementById('qIndexText').innerText = `Câu ${currentQIndex + 1} / ${gameQuestions.length}`;
+      document.getElementById('qPoints').innerText = `+${q.points} điểm`;
+      document.getElementById('qContent').innerText = q.content;
+
+      document.getElementById('choiceTextA').innerText = q.A;
+      document.getElementById('choiceTextB').innerText = q.B;
+      document.getElementById('choiceTextC').innerText = q.C;
+      document.getElementById('choiceTextD').innerText = q.D;
+
+      // Reset trạng thái các nút phương án
+      document.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.className = 'choice-btn';
+        btn.disabled = false;
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+        const txt = btn.querySelector('.text');
+        if (txt) txt.style.fontWeight = '600';
+      });
+
+      const qAns = playerAnswersMap[String(q.id)];
+      const isFinished = (currentGameStatus === 'finished');
+      const isWaiting = (currentGameStatus === 'waiting');
+
+      // Kiểm tra nếu câu hỏi hiện tại đã được trả lời trước đó
+      if (qAns) {
+        // Vô hiệu hóa nút và in đậm phương án đã chọn
+        document.querySelectorAll('.choice-btn').forEach(btn => {
+          btn.disabled = true;
+          if (qAns.choice && btn.dataset.choice === qAns.choice) {
+            btn.classList.add('selected-choice');
+            if (qAns.correct) {
+              btn.classList.add('correct');
+            } else {
+              btn.classList.add('wrong');
+            }
+            const txt = btn.querySelector('.text');
+            if (txt) txt.style.fontWeight = '800';
+          }
+        });
+
+        // Hiển thị thông báo trạng thái câu hỏi đã trả lời
+        fb.className = qAns.correct ? 'feedback-msg success show' : 'feedback-msg error show';
+        const statusNote = isFinished ? ' (Trận đấu đã kết thúc)' : '';
+        if (qAns.choice) {
+          fb.innerText = qAns.correct 
+            ? `✓ Bạn đã trả lời đúng câu hỏi này (Đã chọn phương án ${qAns.choice})${statusNote}`
+            : `✗ Bạn đã trả lời sai câu hỏi này (Đã chọn phương án ${qAns.choice})${statusNote}`;
+        } else {
+          fb.innerText = `⚠️ Câu hỏi này đã được bạn trả lời trước đó!${statusNote}`;
+        }
+      } else {
+        // Chưa trả lời câu này nhưng trận đấu đã kết thúc hoặc đang chờ
+        if (isFinished) {
+          document.querySelectorAll('.choice-btn').forEach(btn => {
+            btn.disabled = true;
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.55';
+          });
+          fb.className = 'feedback-msg error show';
+          fb.innerHTML = '⛔ <strong>Trận đấu đã kết thúc!</strong> Người chơi không được phép trả lời nữa.';
+        } else if (isWaiting) {
+          document.querySelectorAll('.choice-btn').forEach(btn => {
+            btn.disabled = true;
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.55';
+          });
+          fb.className = 'feedback-msg error show';
+          fb.innerHTML = '⏳ <strong>Trận đấu chưa bắt đầu.</strong> Vui lòng chờ quản trị viên kích hoạt trận đấu.';
+        }
+      }
+
+      // Cập nhật trạng thái nút điều hướng Câu Trước / Câu Kế Tiếp
+      const btnPrev = document.getElementById('btnPrevQ');
+      const btnNext = document.getElementById('btnNextQ');
+      if (btnPrev) {
+        btnPrev.disabled = (currentQIndex <= 0);
+        btnPrev.style.opacity = (currentQIndex <= 0) ? '0.4' : '1';
+        btnPrev.style.cursor = (currentQIndex <= 0) ? 'not-allowed' : 'pointer';
+      }
+      if (btnNext) {
+        btnNext.disabled = (currentQIndex >= gameQuestions.length - 1);
+        btnNext.style.opacity = (currentQIndex >= gameQuestions.length - 1) ? '0.4' : '1';
+        btnNext.style.cursor = (currentQIndex >= gameQuestions.length - 1) ? 'not-allowed' : 'pointer';
+      }
+    }
+
+    // Nộp câu trả lời khi bấm vào phương án
+    document.querySelectorAll('.choice-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (currentGameStatus !== 'running') {
+          const fb = document.getElementById('feedbackMsg');
+          fb.className = 'feedback-msg error show';
+          fb.innerHTML = '⛔ <strong>Trận đấu đã kết thúc!</strong> Người chơi không được phép trả lời nữa.';
+          return;
+        }
+
+        const choice = btn.dataset.choice;
+        const q = gameQuestions[currentQIndex];
+        if (!q) return;
+
+        // Vô hiệu hóa nút để chống nộp đúp
+        document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+
+        try {
+          const res = await fetch(`/games/${currentGid}/answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              player_id: currentPid,
+              question_id: q.id,
+              choice: choice
+            })
+          });
+
+          const data = await res.json();
+          const fb = document.getElementById('feedbackMsg');
+
+          if (res.ok) {
+            playerAnswersMap[String(q.id)] = {
+              choice: choice,
+              correct: data.correct
+            };
+            btn.classList.add('selected-choice');
+            const txt = btn.querySelector('.text');
+            if (txt) txt.style.fontWeight = '800';
+
+            if (data.correct) {
+              btn.classList.add('correct');
+              fb.className = 'feedback-msg success show';
+              fb.innerText = `🎉 ${data.message} (+${data.points_earned}đ) - Thứ hạng mới: #${data.new_rank}`;
+            } else {
+              btn.classList.add('wrong');
+              fb.className = 'feedback-msg error show';
+              fb.innerText = `❌ ${data.message} (Đã chọn phương án ${choice})`;
+            }
+            updateMyStats();
+          } else {
+            fb.className = 'feedback-msg error show';
+            fb.innerText = `⚠️ ${data.detail || 'Không thể nộp câu trả lời'}`;
+            if (data.detail && (data.detail.includes('đã được') || data.detail.includes('kết thúc'))) {
+              await loadGameInfo(currentGid);
+              await loadPlayerAnswers();
+              renderCurrentQuestion();
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+
+    // CÁC SỰ KIỆN ĐIỀU HƯỚNG
+    document.getElementById('btnPrevQ').addEventListener('click', () => {
+      if (currentQIndex > 0) {
+        currentQIndex--;
+        renderCurrentQuestion();
+      }
+    });
+
+    document.getElementById('btnNextQ').addEventListener('click', () => {
+      if (currentQIndex < gameQuestions.length - 1) {
+        currentQIndex++;
+        renderCurrentQuestion();
+      }
+    });
+
+    document.getElementById('btnSwitchPlayer').addEventListener('click', () => {
+      const pid = document.getElementById('playerIdInput').value;
+      if (pid) switchPlayer(pid);
+    });
+
+    document.getElementById('playerSelect').addEventListener('change', (e) => {
+      switchPlayer(e.target.value);
+    });
+
+    document.getElementById('gameSelect').addEventListener('change', async (e) => {
+      currentGid = parseInt(e.target.value);
+      currentQIndex = 0;
+      await loadGameInfo(currentGid);
+      await fetch(`/games/${currentGid}/join?player_id=${currentPid}`, { method: 'POST' });
+      await loadPlayerAnswers();
+      await loadGameQuestions(currentGid);
+      connectEventSource(currentGid);
+      reloadActiveLeaderboard();
+      updateMyStats();
+    });
+
+    document.getElementById('tabGame').addEventListener('click', () => {
+      activeTab = 'game';
+      document.getElementById('tabGame').classList.add('active');
+      document.getElementById('tabGlobal').classList.remove('active');
+      reloadActiveLeaderboard();
+      updateMyStats();
+    });
+
+    document.getElementById('tabGlobal').addEventListener('click', () => {
+      activeTab = 'global';
+      document.getElementById('tabGlobal').classList.add('active');
+      document.getElementById('tabGame').classList.remove('active');
+      reloadActiveLeaderboard();
+      updateMyStats();
+    });
+
+    async function loadGamesList() {
+      try {
+        const res = await fetch('/games');
+        if (res.ok) {
+          const games = await res.json();
+          games.sort((a, b) => a.id - b.id);
+          const sel = document.getElementById('gameSelect');
+          const currentSelected = sel.value ? parseInt(sel.value) : currentGid;
+          sel.innerHTML = '';
+          games.forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g.id;
+            let statusTag = '';
+            if (g.status === 'finished') statusTag = ' ⏹️ [Đã kết thúc]';
+            else if (g.status === 'waiting') statusTag = ' ⏳ [Chờ bắt đầu]';
+            else statusTag = ' ▶️ [Đang diễn ra]';
+            opt.innerText = `Game ${g.id}: ${g.name}${statusTag}`;
+            sel.appendChild(opt);
+          });
+          if (games.length > 0 && !games.some(g => g.id === currentGid)) {
+            currentGid = games[0].id;
+          }
+          sel.value = currentSelected || currentGid;
+        }
+      } catch (err) {}
+    }
+
+    async function loadPlayersList(selectedId = null) {
+      try {
+        const res = await fetch('/players?limit=500&order=asc');
+        if (res.ok) {
+          const players = await res.json();
+          const sel = document.getElementById('playerSelect');
+          sel.innerHTML = '';
+          players.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.innerText = `#${p.id} - ${p.display_name} (@${p.username})`;
+            sel.appendChild(opt);
+          });
+          const targetId = selectedId || currentPid;
+          if (![...sel.options].some(o => o.value == targetId)) {
+            const opt = document.createElement('option');
+            opt.value = targetId;
+            opt.innerText = `Thí sinh ID #${targetId}`;
+            sel.appendChild(opt);
+          }
+          sel.value = targetId;
+        }
+      } catch (err) {}
+    }
+
+    // Bắt đầu ứng dụng
+    initApp();
+  </script>
+</body>
+</html>

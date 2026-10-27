@@ -1,0 +1,13 @@
+services:
+  redis:
+    image: redis:7.0-alpine
+    container_name: redis-leaderboard
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --notify-keyspace-events Ez
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

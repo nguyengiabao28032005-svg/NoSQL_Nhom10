@@ -1,0 +1,26 @@
+# Python & Virtual Environments
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Redis Dumps & Logs (dữ liệu tạm thời trong lúc chạy)
+*.rdb
+*.aof
+dump.rdb
+appendonlydir/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+
+# Environment variables
+.env
+.env.local

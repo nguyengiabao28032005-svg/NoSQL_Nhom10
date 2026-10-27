@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản Trị Hệ Thống - Redis Leaderboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="brand">
+      <span class="brand-icon">⚙️</span>
+      <span>Trung Tâm Quản Trị Hệ Thống (Redis Leaderboard)</span>
+    </div>
+    <div class="nav-links">
+      <a href="/static/index.html" class="nav-btn primary">🎮 Về Hệ Thống Thi</a>
+      <button id="btnQuickSeed" class="nav-btn" style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.4);">
+        ⚡ Nạp Dữ Liệu Mẫu (Reset & Seed)
+      </button>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- STATS STRIP -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="stat-pill" style="padding: 16px;">
+        <div id="statTotalPlayers" class="val">--</div>
+        <div class="lbl">Tổng Người Chơi (SCARD)</div>
+      </div>
+      <div class="stat-pill" style="padding: 16px;">
+        <div id="statGlobalZset" class="val">--</div>
+        <div class="lbl">BXH Toàn Cầu (ZCARD)</div>
+      </div>
+      <div class="stat-pill" style="padding: 16px;">
+        <div id="statTotalQuestions" class="val">--</div>
+        <div class="lbl">Ngân Hàng Câu Hỏi</div>
+      </div>
+      <div class="stat-pill" style="padding: 16px;">
+        <div id="statTotalGames" class="val">--</div>
+        <div class="lbl">Số Lượt Thi Đấu</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" data-tab="players">👥 Quản Lý Người Chơi</button>
+      <button class="admin-tab-btn" data-tab="questions">📚 Ngân Hàng Câu Hỏi</button>
+      <button class="admin-tab-btn" data-tab="games">🎮 Quản Lý Trận Đấu</button>
+    </div>
+
+    <!-- TAB 1: NGƯỜI CHƠI -->
+    <section id="tab-content-players" class="card">
+      <div class="card-header">
+        <h2 class="card-title">Danh Sách Người Chơi</h2>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="searchPlayerInput" class="text-input" placeholder="Tìm theo tên/username...">
+          <button id="btnAddPlayer" class="nav-btn primary">+ Thêm Người Chơi</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Avatar</th>
+              <th>Username</th>
+              <th>Tên Hiển Thị</th>
+              <th>Email</th>
+              <th>Số Game</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="playersTableBody">
+            <tr><td colspan="7" style="text-align: center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 2: CÂU HỎI -->
+    <section id="tab-content-questions" class="card" style="display: none;">
+      <div class="card-header">
+        <h2 class="card-title">Ngân Hàng Câu Hỏi Trắc Nghiệm</h2>
+        <div style="display: flex; gap: 10px;">
+          <select id="filterCategory" class="select-input">
+            <option value="">Tất cả chủ đề</option>
+          </select>
+          <button id="btnOpenCategoryModal" class="nav-btn secondary" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3);">🏷️ Quản Lý Chủ Đề</button>
+          <button id="btnAddQuestion" class="nav-btn primary">+ Tạo Câu Hỏi Mới</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nội Dung Câu Hỏi</th>
+              <th>Chủ Đề</th>
+              <th>Điểm</th>
+              <th>Đáp Án Đúng</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="questionsTableBody">
+            <tr><td colspan="6" style="text-align: center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: TRẬN ĐẤU -->
+    <section id="tab-content-games" class="card" style="display: none;">
+      <div class="card-header">
+        <h2 class="card-title">Quản Lý Lượt Thi Đấu (Games)</h2>
+        <button id="btnAddGame" class="nav-btn primary">+ Tạo Lượt Chơi Mới</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Game ID</th>
+              <th>Tên Trận Đấu</th>
+              <th>Trạng Thái</th>
+              <th>Số Câu Hỏi</th>
+              <th>Số Thí Sinh</th>
+              <th>Thời Gian Tạo</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="gamesTableBody">
+            <tr><td colspan="7" style="text-align: center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL THÊM / SỬA NGƯỜI CHƠI -->
+  <div id="playerModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="playerModalTitle" style="margin-bottom: 16px;">Thêm Người Chơi</h3>
+      <input type="hidden" id="pmPlayerId">
+      <div class="form-group">
+        <label class="form-label">Username (duy nhất):</label>
+        <input type="text" id="pmUsername" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tên hiển thị:</label>
+        <input type="text" id="pmDisplayName" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email:</label>
+        <input type="email" id="pmEmail" class="form-control" required>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button id="btnCancelPlayerModal" class="nav-btn secondary">Hủy</button>
+        <button id="btnSavePlayerModal" class="nav-btn primary">Lưu Lại</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM / SỬA CÂU HỎI -->
+  <div id="questionModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+      <h3 id="questionModalTitle" style="margin-bottom: 16px;">Tạo Câu Hỏi</h3>
+      <input type="hidden" id="qmQuestionId">
+      <div class="form-group">
+        <label class="form-label">Nội dung câu hỏi:</label>
+        <textarea id="qmContent" class="form-control" rows="3" required></textarea>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Phương án A:</label>
+          <input type="text" id="qmA" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phương án B:</label>
+          <input type="text" id="qmB" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phương án C:</label>
+          <input type="text" id="qmC" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phương án D:</label>
+          <input type="text" id="qmD" class="form-control" required>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Đáp án đúng:</label>
+          <select id="qmCorrect" class="form-control">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Chủ đề:</label>
+          <select id="qmCategory" class="form-control" required>
+            <!-- Được JavaScript nạp tự động từ danh sách chủ đề -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Điểm thưởng:</label>
+          <input type="number" id="qmPoints" class="form-control" value="100" min="1" max="1000">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button id="btnCancelQuestionModal" class="nav-btn secondary">Hủy</button>
+        <button id="btnSaveQuestionModal" class="nav-btn primary">Lưu Lại</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL QUẢN LÝ CHỦ ĐỀ CÂU HỎI -->
+  <div id="categoryModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 580px;">
+      <h3 style="margin-bottom: 16px;">🏷️ Quản Lý Chủ Đề Câu Hỏi</h3>
+      
+      <!-- FORM THÊM CHỦ ĐỀ MỚI -->
+      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+        <input type="text" id="newCategoryInput" class="form-control" placeholder="Nhập tên chủ đề mới (vd: Triết học, GDCD,...)" style="flex: 1;">
+        <button id="btnAddCategoryBtn" class="nav-btn primary" style="white-space: nowrap;">+ Thêm Chủ Đề</button>
+      </div>
+
+      <div style="max-height: 300px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tên Chủ Đề</th>
+              <th>Số Câu Hỏi</th>
+              <th style="text-align: right;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="categoryTableBody">
+            <tr><td colspan="3" style="text-align: center;">Đang tải danh sách chủ đề...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button id="btnCloseCategoryModal" class="nav-btn secondary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TẠO GAME -->
+  <div id="gameModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 16px;">Tạo Lượt Thi Đấu Mới</h3>
+      <div class="form-group">
+        <label class="form-label">Tên trận đấu:</label>
+        <input type="text" id="gmName" class="form-control" placeholder="Ví dụ: Chung Kết Đấu Trường Redis" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Số lượng câu hỏi:</label>
+        <input type="number" id="gmCount" class="form-control" value="10" min="1" max="50">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Chủ đề câu hỏi:</label>
+        <select id="gmCategory" class="form-control">
+          <option value="">Ngẫu nhiên toàn bộ</option>
+        </select>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button id="btnCancelGameModal" class="nav-btn secondary">Hủy</button>
+        <button id="btnSaveGameModal" class="nav-btn primary">Khởi Tạo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT ADMIN -->
+  <script>
+    // Tab switching
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('tab-content-players').style.display = tab === 'players' ? 'block' : 'none';
+        document.getElementById('tab-content-questions').style.display = tab === 'questions' ? 'block' : 'none';
+        document.getElementById('tab-content-games').style.display = tab === 'games' ? 'block' : 'none';
+      });
+    });
+
+    // 1. STATS OVERVIEW
+    async function loadStats() {
+      try {
+        const [pRes, qRes, gRes] = await Promise.all([
+          fetch('/players?limit=1'),
+          fetch('/questions?limit=1'),
+          fetch('/games')
+        ]);
+        const games = await gRes.json();
+        document.getElementById('statTotalGames').innerText = games.length;
+
+        // Fetch counts from top endpoints
+        const lbRes = await fetch('/leaderboard/global?top=1');
+        const lb = await lbRes.json();
+        // Read overall players
+        const allP = await fetch('/players?limit=500');
+        const allPList = await allP.json();
+        document.getElementById('statTotalPlayers').innerText = allPList.length;
+        document.getElementById('statGlobalZset').innerText = allPList.length;
+
+        const allQ = await fetch('/questions?limit=100');
+        const allQList = await allQ.json();
+        document.getElementById('statTotalQuestions').innerText = allQList.length;
+      } catch (e) {}
+    }
+
+    // 2. PLAYERS MANAGEMENT
+    async function loadPlayers(search = '') {
+      try {
+        const url = search ? `/players?search=${encodeURIComponent(search)}&limit=500&order=asc` : '/players?limit=500&order=asc';
+        const res = await fetch(url);
+        const players = await res.json();
+        const tbody = document.getElementById('playersTableBody');
+        tbody.innerHTML = '';
+        if (players.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Không tìm thấy người chơi nào.</td></tr>';
+          return;
+        }
+        players.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>#${p.id}</strong></td>
+            <td><img src="${p.avatar}" style="width:28px;height:28px;border-radius:50%;"></td>
+            <td>${p.username}</td>
+            <td><strong>${p.display_name}</strong></td>
+            <td>${p.email}</td>
+            <td>${p.total_games}</td>
+            <td>
+              <button class="action-btn edit" onclick="editPlayer(${p.id}, '${p.username}', '${p.display_name}', '${p.email}')">Sửa</button>
+              <button class="action-btn delete" onclick="deletePlayer(${p.id})">Xóa</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {}
+    }
+
+    document.getElementById('searchPlayerInput').addEventListener('input', (e) => {
+      loadPlayers(e.target.value.trim());
+    });
+
+    document.getElementById('btnAddPlayer').addEventListener('click', () => {
+      document.getElementById('playerModalTitle').innerText = 'Thêm Người Chơi Mới';
+      document.getElementById('pmPlayerId').value = '';
+      document.getElementById('pmUsername').value = '';
+      document.getElementById('pmDisplayName').value = '';
+      document.getElementById('pmEmail').value = '';
+      document.getElementById('playerModal').classList.add('open');
+    });
+
+    function editPlayer(id, username, displayName, email) {
+      document.getElementById('playerModalTitle').innerText = 'Cập Nhật Người Chơi';
+      document.getElementById('pmPlayerId').value = id;
+      document.getElementById('pmUsername').value = username;
+      document.getElementById('pmDisplayName').value = displayName;
+      document.getElementById('pmEmail').value = email;
+      document.getElementById('playerModal').classList.add('open');
+    }
+
+    async function deletePlayer(id) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn người chơi ID ${id}?`)) return;
+      try {
+        const res = await fetch(`/players/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadPlayers();
+          loadStats();
+        } else {
+          alert('Không thể xóa người chơi');
+        }
+      } catch (e) { alert(e); }
+    }
+
+    document.getElementById('btnCancelPlayerModal').addEventListener('click', () => {
+      document.getElementById('playerModal').classList.remove('open');
+    });
+
+    document.getElementById('btnSavePlayerModal').addEventListener('click', async () => {
+      const id = document.getElementById('pmPlayerId').value;
+      const payload = {
+        username: document.getElementById('pmUsername').value.trim(),
+        display_name: document.getElementById('pmDisplayName').value.trim(),
+        email: document.getElementById('pmEmail').value.trim()
+      };
+      if (!payload.username || !payload.display_name || !payload.email) {
+        alert('Vui lòng điền đủ thông tin: Username, Tên hiển thị và Email');
+        return;
+      }
+      try {
+        const url = id ? `/players/${id}` : '/players';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const result = await res.json();
+          document.getElementById('playerModal').classList.remove('open');
+          await loadPlayers();
+          await loadStats();
+          alert(id ? `Đã cập nhật người chơi #${id} thành công!` : `🎉 Thêm người chơi mới thành công:\n- ID: #${result.id}\n- Tên: ${result.display_name} (@${result.username})`);
+        } else {
+          const err = await res.json();
+          let msg = 'Lỗi khi lưu người chơi';
+          if (typeof err.detail === 'string') {
+            msg = err.detail;
+          } else if (Array.isArray(err.detail)) {
+            msg = err.detail.map(d => `${d.loc ? d.loc.slice(1).join('.') + ': ' : ''}${d.msg}`).join('\n');
+          }
+          alert('⚠️ ' + msg);
+        }
+      } catch (e) { alert('Lỗi kết nối: ' + e); }
+    });
+
+    function formatApiError(err, defaultMsg = 'Đã xảy ra lỗi') {
+      if (!err) return defaultMsg;
+      if (typeof err.detail === 'string') return err.detail;
+      if (Array.isArray(err.detail)) {
+        return err.detail.map(d => {
+          const field = d.loc ? d.loc.slice(1).join('.') : '';
+          return (field ? `Trường '${field}': ` : '') + (d.msg || JSON.stringify(d));
+        }).join('\n');
+      }
+      return defaultMsg;
+    }
+
+    // 3. QUESTIONS MANAGEMENT
+    async function loadQuestions(category = '') {
+      try {
+        const url = category ? `/questions?category=${encodeURIComponent(category)}&limit=300` : '/questions?limit=300';
+        const res = await fetch(url);
+        const questions = await res.json();
+        const tbody = document.getElementById('questionsTableBody');
+        tbody.innerHTML = '';
+        if (questions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chưa có câu hỏi nào.</td></tr>';
+          return;
+        }
+        questions.forEach(q => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>#${q.id}</strong></td>
+            <td style="max-width:350px;">${q.content}</td>
+            <td><span class="q-cat">${q.category}</span></td>
+            <td><strong>${q.points}đ</strong></td>
+            <td><span class="letter" style="background:#22c55e;color:#fff;display:inline-block;padding:2px 8px;border-radius:4px;font-weight:700;">${q.correct}</span></td>
+            <td>
+              <button class="action-btn edit" onclick='editQuestion(${JSON.stringify(q)})'>Sửa</button>
+              <button class="action-btn delete" onclick="deleteQuestion(${q.id})">Xóa</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {}
+    }
+
+    async function loadCategories() {
+      try {
+        const res = await fetch('/questions/categories');
+        const cats = await res.json();
+        const selFilter = document.getElementById('filterCategory');
+        const selGame = document.getElementById('gmCategory');
+        const selQuestion = document.getElementById('qmCategory');
+
+        const prevFilterVal = selFilter.value;
+        const prevQuestionVal = selQuestion ? selQuestion.value : '';
+
+        selFilter.innerHTML = '<option value="">Tất cả chủ đề</option>';
+        selGame.innerHTML = '<option value="">Ngẫu nhiên toàn bộ</option>';
+        if (selQuestion) selQuestion.innerHTML = '';
+
+        cats.forEach(c => {
+          selFilter.innerHTML += `<option value="${c}">${c}</option>`;
+          selGame.innerHTML += `<option value="${c}">${c}</option>`;
+          if (selQuestion) {
+            selQuestion.innerHTML += `<option value="${c}">${c}</option>`;
+          }
+        });
+
+        if (prevFilterVal && cats.includes(prevFilterVal)) selFilter.value = prevFilterVal;
+        if (prevQuestionVal && cats.includes(prevQuestionVal) && selQuestion) selQuestion.value = prevQuestionVal;
+      } catch (e) {}
+    }
+
+    // CATEGORY MANAGEMENT
+    async function loadCategoriesTable() {
+      try {
+        const res = await fetch('/questions/categories/details');
+        const list = await res.json();
+        const tbody = document.getElementById('categoryTableBody');
+        tbody.innerHTML = '';
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Chưa có chủ đề nào.</td></tr>';
+          return;
+        }
+        list.forEach(item => {
+          const tr = document.createElement('tr');
+          const hasQuestions = item.count > 0;
+          tr.innerHTML = `
+            <td><strong>🏷️ ${item.name}</strong></td>
+            <td><span class="q-cat" style="background: rgba(56, 189, 248, 0.15); color: var(--accent);">${item.count} câu hỏi</span></td>
+            <td style="text-align: right;">
+              ${hasQuestions 
+                ? `<span style="font-size: 0.8rem; color: var(--text-muted);">(Đang dùng)</span>` 
+                : `<button class="action-btn delete" onclick="deleteCategory('${item.name}')">Xóa</button>`}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {}
+    }
+
+    async function deleteCategory(name) {
+      if (!confirm(`Bạn có chắc muốn xóa chủ đề '${name}'?`)) return;
+      try {
+        const res = await fetch(`/questions/categories/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        if (res.ok) {
+          await loadCategories();
+          await loadCategoriesTable();
+          alert(`Đã xóa chủ đề '${name}' thành công!`);
+        } else {
+          const err = await res.json();
+          alert('⚠️ ' + formatApiError(err, 'Lỗi khi xóa chủ đề'));
+        }
+      } catch (e) { alert('Lỗi kết nối: ' + e); }
+    }
+
+    document.getElementById('btnOpenCategoryModal').addEventListener('click', () => {
+      document.getElementById('newCategoryInput').value = '';
+      loadCategoriesTable();
+      document.getElementById('categoryModal').classList.add('open');
+    });
+
+    document.getElementById('btnCloseCategoryModal').addEventListener('click', () => {
+      document.getElementById('categoryModal').classList.remove('open');
+    });
+
+    document.getElementById('btnAddCategoryBtn').addEventListener('click', async () => {
+      const name = document.getElementById('newCategoryInput').value.trim();
+      if (!name) {
+        alert('⚠️ Vui lòng nhập tên chủ đề mới.');
+        return;
+      }
+      try {
+        const res = await fetch('/questions/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name })
+        });
+        if (res.ok) {
+          document.getElementById('newCategoryInput').value = '';
+          await loadCategories();
+          await loadCategoriesTable();
+          alert(`🎉 Đã thêm chủ đề mới: '${name}' thành công!`);
+        } else {
+          const err = await res.json();
+          alert('⚠️ ' + formatApiError(err, 'Lỗi khi thêm chủ đề'));
+        }
+      } catch (e) { alert('Lỗi kết nối: ' + e); }
+    });
+
+    document.getElementById('filterCategory').addEventListener('change', (e) => {
+      loadQuestions(e.target.value);
+    });
+
+    document.getElementById('btnAddQuestion').addEventListener('click', () => {
+      document.getElementById('questionModalTitle').innerText = 'Tạo Câu Hỏi Mới';
+      document.getElementById('qmQuestionId').value = '';
+      document.getElementById('qmContent').value = '';
+      document.getElementById('qmA').value = '';
+      document.getElementById('qmB').value = '';
+      document.getElementById('qmC').value = '';
+      document.getElementById('qmD').value = '';
+      const selQCat = document.getElementById('qmCategory');
+      if (selQCat && selQCat.options.length > 0) {
+        selQCat.selectedIndex = 0;
+      }
+      document.getElementById('qmPoints').value = 100;
+      document.getElementById('qmCorrect').value = 'A';
+      document.getElementById('questionModal').classList.add('open');
+    });
+
+    function editQuestion(q) {
+      document.getElementById('questionModalTitle').innerText = 'Cập Nhật Câu Hỏi #' + q.id;
+      document.getElementById('qmQuestionId').value = q.id;
+      document.getElementById('qmContent').value = q.content;
+      document.getElementById('qmA').value = q.A;
+      document.getElementById('qmB').value = q.B;
+      document.getElementById('qmC').value = q.C;
+      document.getElementById('qmD').value = q.D;
+      const selQCat = document.getElementById('qmCategory');
+      if (selQCat) {
+        selQCat.value = q.category;
+      }
+      document.getElementById('qmPoints').value = q.points;
+      document.getElementById('qmCorrect').value = q.correct;
+      document.getElementById('questionModal').classList.add('open');
+    }
+
+    async function deleteQuestion(id) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa câu hỏi ID ${id}?`)) return;
+      try {
+        const res = await fetch(`/questions/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadQuestions();
+          loadStats();
+        }
+      } catch (e) { alert(e); }
+    }
+
+    document.getElementById('btnCancelQuestionModal').addEventListener('click', () => {
+      document.getElementById('questionModal').classList.remove('open');
+    });
+
+    document.getElementById('btnSaveQuestionModal').addEventListener('click', async () => {
+      const id = document.getElementById('qmQuestionId').value;
+      const payload = {
+        content: document.getElementById('qmContent').value.trim(),
+        A: document.getElementById('qmA').value.trim(),
+        B: document.getElementById('qmB').value.trim(),
+        C: document.getElementById('qmC').value.trim(),
+        D: document.getElementById('qmD').value.trim(),
+        correct: document.getElementById('qmCorrect').value,
+        category: document.getElementById('qmCategory').value.trim() || 'Chung',
+        points: parseInt(document.getElementById('qmPoints').value) || 100
+      };
+
+      if (!payload.content) {
+        alert('⚠️ Vui lòng nhập nội dung câu hỏi.');
+        return;
+      }
+      if (!payload.A || !payload.B || !payload.C || !payload.D) {
+        alert('⚠️ Vui lòng điền đủ 4 phương án A, B, C, D.');
+        return;
+      }
+
+      try {
+        const url = id ? `/questions/${id}` : '/questions';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const qRes = await res.json();
+          document.getElementById('questionModal').classList.remove('open');
+          await loadQuestions();
+          await loadCategories();
+          await loadStats();
+          alert(id ? `Đã cập nhật câu hỏi #${id} thành công!` : `🎉 Tạo câu hỏi mới thành công: #${qRes.id} - ${qRes.content}`);
+        } else {
+          const err = await res.json();
+          alert('⚠️ ' + formatApiError(err, 'Lỗi khi lưu câu hỏi'));
+        }
+      } catch (e) { alert('Lỗi kết nối: ' + e); }
+    });
+
+    // 4. GAMES MANAGEMENT
+    async function loadGames() {
+      try {
+        const res = await fetch('/games');
+        const games = await res.json();
+        const tbody = document.getElementById('gamesTableBody');
+        tbody.innerHTML = '';
+        games.forEach(g => {
+          let statusBadge = '<span class="q-cat" style="background:rgba(250,204,21,0.2);color:#fbbf24;">Chờ bắt đầu</span>';
+          if (g.status === 'running') {
+            statusBadge = '<span class="q-cat" style="background:rgba(34,197,94,0.2);color:#4ade80;">Đang chạy</span>';
+          } else if (g.status === 'finished') {
+            statusBadge = '<span class="q-cat" style="background:rgba(148,163,184,0.2);color:#94a3b8;">Đã kết thúc</span>';
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>#${g.id}</strong></td>
+            <td><strong>${g.name}</strong></td>
+            <td>${statusBadge}</td>
+            <td>${g.question_count} câu</td>
+            <td>${g.players_count} thí sinh</td>
+            <td>${g.created_at}</td>
+            <td>
+              ${g.status === 'waiting' ? `<button class="action-btn edit" onclick="setGameStatus(${g.id}, 'running')">▶️ Bắt Đầu</button>` : ''}
+              ${g.status === 'running' ? `<button class="action-btn delete" onclick="setGameStatus(${g.id}, 'finished')">⏹️ Kết Thúc</button>` : ''}
+              ${g.status === 'finished' ? `<button class="action-btn edit" onclick="setGameStatus(${g.id}, 'running')">🔄 Mở Lại</button>` : ''}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {}
+    }
+
+    async function setGameStatus(gid, status) {
+      try {
+        const res = await fetch(`/games/${gid}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: status })
+        });
+        if (res.ok) loadGames();
+      } catch (e) { alert(e); }
+    }
+
+    document.getElementById('btnAddGame').addEventListener('click', () => {
+      document.getElementById('gameModal').classList.add('open');
+    });
+    document.getElementById('btnCancelGameModal').addEventListener('click', () => {
+      document.getElementById('gameModal').classList.remove('open');
+    });
+
+    document.getElementById('btnSaveGameModal').addEventListener('click', async () => {
+      const payload = {
+        name: document.getElementById('gmName').value.trim(),
+        question_count: parseInt(document.getElementById('gmCount').value),
+        category: document.getElementById('gmCategory').value || null
+      };
+      if (!payload.name) { alert('Vui lòng nhập tên trận đấu'); return; }
+      try {
+        const res = await fetch('/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const newG = await res.json();
+          document.getElementById('gameModal').classList.remove('open');
+          await loadGames();
+          await loadStats();
+          alert(`🎉 Tạo trận đấu mới thành công: #${newG.id} - ${newG.name}`);
+        } else {
+          const err = await res.json();
+          alert('⚠️ ' + formatApiError(err, 'Lỗi khi tạo game'));
+        }
+      } catch (e) { alert('Lỗi kết nối: ' + e); }
+    });
+
+    // 5. QUICK SEED BUTTON (CÓ HỎI XÁC NHẬN)
+    document.getElementById('btnQuickSeed').addEventListener('click', async () => {
+      const confirmed = confirm(
+        "⚠️ XÁC NHẬN NẠP DỮ LIỆU MẪU ĐỊNH MỨC:\n\n" +
+        "- Hệ thống sẽ xóa an toàn các key của đồ án (seq:*, player:*, question:*, game:*, leaderboard:*).\n" +
+        "- TỰ ĐỘNG KHÔNG DÙNG FLUSHALL/FLUSHDB để bảo toàn CSDL khác.\n" +
+        "- Nạp 150 người chơi, 30 câu hỏi, Game ID=1 với 125 thí sinh.\n\n" +
+        "Bạn có muốn tiếp tục?"
+      );
+      if (!confirmed) return;
+
+      const btn = document.getElementById('btnQuickSeed');
+      btn.innerText = '⏳ Đang nạp dữ liệu...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/admin-api/seed?reset=true', { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+          alert(
+            "🎉 NẠP DỮ LIỆU MẪU THÀNH CÔNG!\n\n" +
+            `• SCARD players:all: ${result.stats.players}\n` +
+            `• ZCARD leaderboard:global: ${result.stats.global_leaderboard}\n` +
+            `• ZCARD leaderboard:game:1: ${result.stats.game1_leaderboard}\n` +
+            `• SCARD questions:all: ${result.stats.questions}\n` +
+            `• DBSIZE: ${result.stats.dbsize}`
+          );
+          loadStats();
+          loadPlayers();
+          loadQuestions();
+          loadGames();
+        } else {
+          alert('Lỗi: ' + (result.detail || 'Không thể nạp dữ liệu'));
+        }
+      } catch (e) {
+        alert('Lỗi kết nối: ' + e);
+      } finally {
+        btn.innerText = '⚡ Nạp Dữ Liệu Mẫu (Reset & Seed)';
+        btn.disabled = false;
+      }
+    });
+
+    // Khởi động trang admin
+    loadStats();
+    loadPlayers();
+    loadQuestions();
+    loadCategories();
+    loadGames();
+  </script>
+</body>
+</html>
